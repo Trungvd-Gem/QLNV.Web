@@ -1,32 +1,22 @@
-﻿ using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using QLNV.Web.Models;
-using QLNV.Web.Models.PhongBan;
+using QLNV.Web.Models.NhanVien;
 
 namespace QLNV.Web.Controllers
 {
-    public class PhongBanController : Controller
+    public class NhanVienController : Controller
     {
-        private readonly ILogger<PhongBanController> _logger;
-
-        public PhongBanController(ILogger<PhongBanController> logger)
+        private static int phongBanId = 0;
+        public IActionResult Index(int id)
         {
-            _logger = logger;
-        }
-
-        public IActionResult Index()
-        {
-            var phongbans = new List<PhongBanView>();
-            var url = $"{Common.Common.ApiUrl}/phongban/danhsachphongban";
+            var nhanViens = new List<NhanVienView>();
+            var url = $"{Common.Common.ApiUrl}/nhanvien/danhsachnhanvientheophongban/{id}";
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
             httpWebRequest.Method = "GET";
             var response = httpWebRequest.GetResponse();
@@ -39,30 +29,36 @@ namespace QLNV.Web.Controllers
                     try
                     {
                         responseData = streamReader.ReadToEnd();
-                    } finally
+                    }
+                    finally
                     {
                         ((IDisposable)streamReader).Dispose();
                     }
-                } finally
+                }
+                finally
                 {
                     ((IDisposable)responseStream).Dispose();
 
                 }
-                phongbans = JsonConvert.DeserializeObject<List<PhongBanView>>(responseData);
+                nhanViens = JsonConvert.DeserializeObject<List<NhanVienView>>(responseData);
             }
-            return View(phongbans);
+            phongBanId = id;
+            ViewBag.TenPhongBan = DanhSachPhongBan().Where(p => p.ID == id).FirstOrDefault().TenPhongBan;
+            return View(nhanViens);
         }
 
-       public IActionResult TaoPhongBan()
+        public IActionResult TaoNhanVien()
         {
-            TempData["ThanhCong"] = null;
+            ViewBag.PhongBans = DanhSachPhongBan();
+            ViewBag.PhongBanId = phongBanId;
             return View();
         }
+
         [HttpPost]
-        public IActionResult TaoPhongBan(TaoPhongBan model)
+        public IActionResult TaoNhanVien(TaoNhanVien model)
         {
             int ketQua = 0;
-            var url = $"{Common.Common.ApiUrl}/phongban/taophongban";
+            var url = $"{Common.Common.ApiUrl}/nhanvien/taonhanvien";
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
             httpWebRequest.ContentType = "application/json";
             httpWebRequest.Method = "POST";
@@ -80,16 +76,18 @@ namespace QLNV.Web.Controllers
 
             if (ketQua > 0)
             {
-                TempData["ThanhCong"] = "Đã tạo phòng ban thành công";
+                TempData["ThanhCong"] = "Đã tạo nhân viên thành công";
             }
+            ViewBag.PhongBans = DanhSachPhongBan();
+            ViewBag.PhongBanId = phongBanId;
             ModelState.Clear();
-            return View(new TaoPhongBan() { });
+            return View(new TaoNhanVien() { });
         }
 
-        public IActionResult SuaPhongBan(int id)
+        public IActionResult SuaNhanVien (int id)
         {
-            var phongban = new SuaPhongBan();
-            var url = $"{Common.Common.ApiUrl}/phongban/layphongban/{id}";
+            var phongban = new SuaNhanVien();
+            var url = $"{Common.Common.ApiUrl}/nhanvien/suanhanvien/{id}";
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
             httpWebRequest.Method = "GET";
             var response = httpWebRequest.GetResponse();
@@ -113,51 +111,18 @@ namespace QLNV.Web.Controllers
                     ((IDisposable)responseStream).Dispose();
 
                 }
-                phongban = JsonConvert.DeserializeObject<SuaPhongBan>(responseData);
+                phongban = JsonConvert.DeserializeObject<SuaNhanVien>(responseData);
             }
             TempData["ThanhCong"] = null;
             TempData["Loi"] = null;
             return View(phongban);
         }
-
-        [HttpPost]
-        public IActionResult SuaPhongBan(SuaPhongBan model)
+        private List<PhongBanItem> DanhSachPhongBan()
         {
-            int ketQua = 0;
-            var url = $"{Common.Common.ApiUrl}/phongban/suaphongban";
+            var phongbans = new List<PhongBanItem>();
+            var url = $"{Common.Common.ApiUrl}/phongban/danhsachphongban";
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
-            httpWebRequest.ContentType = "application/json";
-            httpWebRequest.Method = "PUT";
-            using (var streamWrite = new StreamWriter(httpWebRequest.GetRequestStream()))
-            {
-                var json = JsonConvert.SerializeObject(model);
-                streamWrite.Write(json);
-            }
-            var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
-            using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
-            {
-                var resKetQua = streamReader.ReadToEnd();
-                ketQua = int.Parse(resKetQua);
-            }
-
-            if (ketQua > 0)
-            {
-                TempData["ThanhCong"] = "Đã cập nhật phòng ban thành công";
-                ModelState.Clear();
-            } else
-            {
-                TempData["Loi"] = "Không thể cập nhật phòng ban";
-            }
-            
-            return View(new SuaPhongBan() { });
-        }
-
-        public IActionResult XoaPhongBan(int id)
-        {
-            var ketqua = false;
-            var url = $"{Common.Common.ApiUrl}/phongban/xoaphongban/{id}";
-            HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
-            httpWebRequest.Method = "DELETE";
+            httpWebRequest.Method = "GET";
             var response = httpWebRequest.GetResponse();
             {
                 string responseData;
@@ -179,10 +144,9 @@ namespace QLNV.Web.Controllers
                     ((IDisposable)responseStream).Dispose();
 
                 }
-                ketqua = JsonConvert.DeserializeObject<bool>(responseData);
+                phongbans = JsonConvert.DeserializeObject<List<PhongBanItem>>(responseData);
             }
-
-            return RedirectToAction("Index", "PhongBan");
+            return phongbans;
         }
     }
 }
